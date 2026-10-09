@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "budgetlens-ai"
+version = "0.1.0"
+description = "Budget CSV preparation and analysis for BudgetLens AI"
+requires-python = ">=3.10"
+dependencies = ["pandas>=2.0,<3.0"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
