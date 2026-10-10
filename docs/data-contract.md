@@ -57,6 +57,56 @@ department,period,category,budget,actual
         "ci95": {"lower": 250000, "upper": 338000},
         "overrun_probability": 0.87
       },
+      "cause_inference": {
+        "observed_outcome": "超支",
+        "baseline_overrun_probability": 0.455,
+        "primary_cause": {
+          "cause": "當前進度",
+          "state": "提前",
+          "reason": "累計支出進度快於年度時間進度",
+          "recommendation": "檢查剩餘預算與未來承諾支出，必要時調整支出節奏。",
+          "prior_probability": 0.5,
+          "posterior_probability": 0.7473,
+          "posterior_probability_lift": 0.2473,
+          "overrun_probability_given_state": 0.68,
+          "risk_probability_lift": 0.225
+        },
+        "ranked_causes": [
+          {
+            "cause": "當前進度",
+            "state": "提前",
+            "reason": "累計支出進度快於年度時間進度",
+            "recommendation": "檢查剩餘預算與未來承諾支出，必要時調整支出節奏。",
+            "prior_probability": 0.5,
+            "posterior_probability": 0.7473,
+            "posterior_probability_lift": 0.2473,
+            "overrun_probability_given_state": 0.68,
+            "risk_probability_lift": 0.225
+          },
+          {
+            "cause": "歷史速率",
+            "state": "快",
+            "reason": "去年實際支出超過預算 5% 以上",
+            "recommendation": "回顧去年超支項目，並確認今年是否需要調高相關預算。",
+            "prior_probability": 0.25,
+            "posterior_probability": 0.3407,
+            "posterior_probability_lift": 0.0907,
+            "overrun_probability_given_state": 0.62,
+            "risk_probability_lift": 0.165
+          },
+          {
+            "cause": "季節因素",
+            "state": "旺季",
+            "reason": "季節模型判定目前屬於旺季",
+            "recommendation": "將旺季支出納入後續月份預測與預算配置。",
+            "prior_probability": 0.3,
+            "posterior_probability": 0.3692,
+            "posterior_probability_lift": 0.0692,
+            "overrun_probability_given_state": 0.56,
+            "risk_probability_lift": 0.105
+          }
+        ]
+      },
       "diagnostics": [
         {
           "period": "2026-08",
