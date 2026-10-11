@@ -1,6 +1,6 @@
 # BudgetLens AI：CSV 與 JSON 資料契約（Day 1 對齊稿）
 
-此文件可直接提供給成員 A，作為前後端介面與圖表欄位的共同基準。API 框架尚未定案；以下先定義與框架無關的 JSON body。
+此文件可直接提供給成員 A，作為前後端介面與圖表欄位的共同基準。目前 API 使用 FastAPI；端點細節見 `docs/day6-7-api.md`。
 
 ## CSV 上傳格式
 
@@ -30,12 +30,12 @@ department,period,category,budget,actual
 - `usage_rate = actual / budget`，JSON 使用小數比例（`0.8` = 80%）；前端顯示時乘 100。
 - `variance = actual - budget`；正數代表超支，負數代表低於預算。
 - `variance_pct = variance / budget`，使用小數比例。
-- 部門彙總先加總所有月份及類別的 budget/actual，再計算比率；不可平均各列百分比。
+- 分析 API 以最新年度的月份及類別資料加總部門 budget/actual，再計算比率；不可平均各列百分比。`period_count` 和 `monthly` 也只包含最新年度。
 - 數值使用 JSON number，缺值使用 `null`，月份使用 `YYYY-MM`。
 
 ## 分析結果 JSON（圖表資料）
 
-`POST /api/v1/analyze` 上傳 CSV 後，回傳下列邏輯結構。`status` 供燈號卡片使用；第一版可由超支風險門檻決定，門檻需由 A/B 確認。預測及異常欄位在模型完成前可回傳空陣列/null，欄位名稱先固定。
+`POST /api/v1/analyze` 上傳 CSV 後，回傳下列結構。`status` 供燈號卡片使用，目前暫以預測超支機率門檻決定。`diagnostics` 目前固定為空陣列；Z-score 診斷尚未接入 API。`model_evidence` 列出貝氏網路實際採用的分類證據。
 
 ```json
 {
@@ -52,71 +52,21 @@ department,period,category,budget,actual
       "variance_pct": 0.1529,
       "period_count": 2,
       "latest_period": "2026-08",
+      "annual_budget": 1020000,
       "forecast": {
-        "year_end_amount": 294000,
-        "ci95": {"lower": 250000, "upper": 338000},
-        "overrun_probability": 0.87
+        "year_end_amount": 1176000,
+        "ci95": {"lower": 900000, "upper": 1452000},
+        "overrun_probability": 0.76,
+        "bayesian_overrun_probability": 0.58,
+        "method": "ytd_plus_remaining_run_rate",
+        "periods_used": 8
       },
-      "cause_inference": {
-        "observed_outcome": "超支",
-        "baseline_overrun_probability": 0.455,
-        "primary_cause": {
-          "cause": "當前進度",
-          "state": "提前",
-          "reason": "累計支出進度快於年度時間進度",
-          "recommendation": "檢查剩餘預算與未來承諾支出，必要時調整支出節奏。",
-          "prior_probability": 0.5,
-          "posterior_probability": 0.7473,
-          "posterior_probability_lift": 0.2473,
-          "overrun_probability_given_state": 0.68,
-          "risk_probability_lift": 0.225
-        },
-        "ranked_causes": [
-          {
-            "cause": "當前進度",
-            "state": "提前",
-            "reason": "累計支出進度快於年度時間進度",
-            "recommendation": "檢查剩餘預算與未來承諾支出，必要時調整支出節奏。",
-            "prior_probability": 0.5,
-            "posterior_probability": 0.7473,
-            "posterior_probability_lift": 0.2473,
-            "overrun_probability_given_state": 0.68,
-            "risk_probability_lift": 0.225
-          },
-          {
-            "cause": "歷史速率",
-            "state": "快",
-            "reason": "去年實際支出超過預算 5% 以上",
-            "recommendation": "回顧去年超支項目，並確認今年是否需要調高相關預算。",
-            "prior_probability": 0.25,
-            "posterior_probability": 0.3407,
-            "posterior_probability_lift": 0.0907,
-            "overrun_probability_given_state": 0.62,
-            "risk_probability_lift": 0.165
-          },
-          {
-            "cause": "季節因素",
-            "state": "旺季",
-            "reason": "季節模型判定目前屬於旺季",
-            "recommendation": "將旺季支出納入後續月份預測與預算配置。",
-            "prior_probability": 0.3,
-            "posterior_probability": 0.3692,
-            "posterior_probability_lift": 0.0692,
-            "overrun_probability_given_state": 0.56,
-            "risk_probability_lift": 0.105
-          }
-        ]
+      "model_evidence": {
+        "歷史速率": "快",
+        "當前進度": "提前",
+        "季節因素": "淡季"
       },
-      "diagnostics": [
-        {
-          "period": "2026-08",
-          "category": "授權費",
-          "metric": "actual",
-          "z_score": 2.4,
-          "reason": "支出高於歷史平均",
-          "recommendation": "檢查授權席次與續約項目"
-        }
-      ],
+      "diagnostics": [],
       "monthly": [
         {"period": "2026-07", "budget": 120000, "actual": 128000, "usage_rate": 1.0667}
       ]
@@ -125,7 +75,7 @@ department,period,category,budget,actual
 }
 ```
 
-燈號列舉值：`green | yellow | red`。建議使用超支機率作為燈號依據；尚無預測時可暫以使用率/差異規則產生暫定狀態，並在 UI 標示為暫定。
+燈號列舉值：`green | yellow | red`。目前門檻是綠燈 `<33%`、黃燈 `33%–67%`、紅燈 `>=67%`。若 run-rate 超支機率因月份不足回傳 `null`，燈號改用貝氏網路機率。上述機率定義與估算假設見 `docs/day6-7-api.md`。
 
 ## 模擬預算 JSON
 
@@ -134,7 +84,7 @@ department,period,category,budget,actual
 ```json
 {
   "analysis_id": "由分析 API 回傳的識別碼",
-  "overrides": [{"department": "研發部", "budget": 200000}]
+  "overrides": [{"department": "研發部", "annual_budget": 1200000}]
 }
 ```
 
@@ -149,6 +99,6 @@ department,period,category,budget,actual
 ## 尚待 A/B 確認
 
 1. 幣別與範例資料目前暫定 TWD。
-2. `budget` 定義為月預算；若來源資料只有年度預算，需另加年度預算欄位或明確的分攤方式。
-3. `status` 燈號門檻、年度截止/預測目標期間與空月份處理規則。
-4. CSV 傳輸採 multipart/form-data；API 路徑與框架（FastAPI/Flask）待整合時決定。
+2. CSV `budget` 定義為月預算；模擬時的 `annual_budget` 是年度預算覆寫值。
+3. 燈號門檻、年度目標期間與缺月規則目前為 MVP 暫定值，請 A/B 與指導教授確認。
+4. API 已採 multipart/form-data 與 FastAPI；瀏覽器前端來源請用 `BUDGETLENS_CORS_ORIGINS` 設定。

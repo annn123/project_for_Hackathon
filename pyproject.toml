@@ -7,7 +7,14 @@ name = "budgetlens-ai"
 version = "0.1.0"
 description = "Budget CSV preparation and analysis for BudgetLens AI"
 requires-python = ">=3.10"
-dependencies = ["pandas>=2.0,<3.0", "pgmpy>=1.0,<2.0"]
+dependencies = [
+    "pandas>=2.0,<3.0",
+    "pgmpy>=1.0,<2.0",
+    "scipy>=1.11,<2.0",
+    "fastapi>=0.115,<1.0",
+    "uvicorn>=0.30,<1.0",
+    "python-multipart>=0.0.9",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]

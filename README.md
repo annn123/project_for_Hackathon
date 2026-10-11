@@ -1,13 +1,13 @@
 # BudgetLens AI
 
-預算 CSV 分析助手。包含 Python CSV 載入、欄位驗證/正規化、部門預算使用率與差異計算，以及 Day 3 貝氏網路超支機率核心。前後端契約見 [`docs/data-contract.md`](docs/data-contract.md)，模型假設見 [`docs/bayesian-model.md`](docs/bayesian-model.md)。
+預算 CSV 分析助手。包含 Python CSV 載入、欄位驗證/正規化、部門預算使用率與差異計算、貝氏網路超支風險，以及 FastAPI 分析與 What-If API。前後端契約見 [`docs/data-contract.md`](docs/data-contract.md)，模型假設見 [`docs/bayesian-model.md`](docs/bayesian-model.md)。
 
 ## 開發環境
 
 ```powershell
-py -m venv .venv
+python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-py -m pip install -e .
+python -m pip install -e .
 ```
 
 ## CSV 欄位
@@ -36,4 +36,13 @@ probability = posterior_overrun_probability({
 possible_causes = infer_overrun_causes()
 ```
 
-若要由 repository 根目錄直接執行範例，先安裝專案 `py -m pip install -e .`。
+若要由 repository 根目錄直接執行範例，先安裝專案 `python -m pip install -e .`。
+
+## API MVP
+
+```powershell
+python -m pip install -e .
+python -m uvicorn budgetlens.api:app --reload
+```
+
+啟動後可開啟 `http://127.0.0.1:8000/docs` 操作 CSV 分析與 What-If API；端點與假設見 [`docs/day6-7-api.md`](docs/day6-7-api.md)。
