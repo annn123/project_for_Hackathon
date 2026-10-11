@@ -1,6 +1,6 @@
-# BudgetLens AI：CSV 與 JSON 資料契約（Day 1 對齊稿）
+# BudgetLens AI：CSV 與 JSON 資料契約
 
-此文件可直接提供給成員 A，作為前後端介面與圖表欄位的共同基準。目前 API 使用 FastAPI；端點細節見 `docs/day6-7-api.md`。
+此文件可直接提供給成員 A，作為前後端介面與圖表欄位的共同基準。目前 API 使用 FastAPI；端點細節見 `docs/api-forecast-and-simulation.md`。
 
 ## CSV 上傳格式
 
@@ -36,6 +36,8 @@ department,period,category,budget,actual
 ## 分析結果 JSON（圖表資料）
 
 `POST /api/v1/analyze` 上傳 CSV 後，回傳下列結構。`status` 供燈號卡片使用，目前暫以預測超支機率門檻決定。`diagnostics` 目前固定為空陣列；Z-score 診斷尚未接入 API。`model_evidence` 列出貝氏網路實際採用的分類證據。
+
+預算不足與執行落後的警示邏輯目前先記錄於 `docs/model-assumptions-and-alert-rules.md`，尚未加入 API JSON；門檻確認後再新增獨立 `alerts` 欄位。CSV 未從 1 月連續涵蓋到最新月份時，`model_evidence` 不會包含 `當前進度`，以免把觀測筆數誤當作日曆經過月數。
 
 ```json
 {
@@ -75,7 +77,7 @@ department,period,category,budget,actual
 }
 ```
 
-燈號列舉值：`green | yellow | red`。目前門檻是綠燈 `<33%`、黃燈 `33%–67%`、紅燈 `>=67%`。若 run-rate 超支機率因月份不足回傳 `null`，燈號改用貝氏網路機率。上述機率定義與估算假設見 `docs/day6-7-api.md`。
+燈號列舉值：`green | yellow | red`。目前門檻是綠燈 `<33%`、黃燈 `33%–67%`、紅燈 `>=67%`。若 run-rate 超支機率因月份不足回傳 `null`，燈號改用貝氏網路機率。上述機率定義與估算假設見 `docs/api-forecast-and-simulation.md`。
 
 ## 模擬預算 JSON
 

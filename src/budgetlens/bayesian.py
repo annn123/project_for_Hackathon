@@ -7,6 +7,7 @@ historical observations become available.
 
 from __future__ import annotations
 
+from functools import lru_cache
 from itertools import product
 from math import isfinite
 from typing import Mapping
@@ -204,6 +205,24 @@ def build_model(
     return model
 
 
+@lru_cache(maxsize=512)
+def _cached_posterior(
+    evidence_items: tuple[tuple[str, str], ...],
+    prior_signature: tuple[tuple[str, tuple[float, ...]], ...],
+) -> float:
+    """Calculate each finite evidence/prior combination only once."""
+    priors = {variable: list(values) for variable, values in prior_signature}
+    evidence = dict(evidence_items)
+    model = build_model(priors)
+    distribution = VariableElimination(model).query(
+        variables=["超支風險"],
+        evidence=evidence or None,
+        show_progress=False,
+    )
+    state_index = distribution.state_names["超支風險"].index("超支")
+    return float(distribution.values[state_index])
+
+
 def posterior_overrun_probability(
     evidence: Mapping[str, str] | None = None,
     priors: Mapping[str, list[float]] | None = None,
@@ -213,7 +232,8 @@ def posterior_overrun_probability(
     Evidence keys may be any subset of 歷史速率, 當前進度, 季節因素.
     With all three observed, the result equals the corresponding CPT value;
     with partial or no evidence, the network marginalizes missing causes using
-    the configured (or explicitly provisional default) priors.
+    the configured (or explicitly provisional default) priors. Exact evidence
+    and prior combinations are memoized to keep repeated API simulations fast.
     """
     evidence = dict(evidence or {})
     unknown = set(evidence) - set(DEFAULT_PRIORS)
@@ -223,14 +243,17 @@ def posterior_overrun_probability(
         if state not in STATES[variable]:
             raise ValueError(f"Invalid state for {variable}: {state!r}")
 
-    model = build_model(priors)
-    distribution = VariableElimination(model).query(
-        variables=["超支風險"],
-        evidence=evidence or None,
-        show_progress=False,
+    resolved_priors = _resolve_priors(priors)
+    evidence_items = tuple(
+        (variable, evidence[variable])
+        for variable in DEFAULT_PRIORS
+        if variable in evidence
     )
-    state_index = distribution.state_names["超支風險"].index("超支")
-    return float(distribution.values[state_index])
+    prior_signature = tuple(
+        (variable, tuple(values))
+        for variable, values in resolved_priors.items()
+    )
+    return _cached_posterior(evidence_items, prior_signature)
 
 
 def infer_overrun_causes(

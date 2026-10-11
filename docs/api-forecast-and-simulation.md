@@ -1,4 +1,4 @@
-# Day 6–7 API MVP
+# API、年底預測與預算模擬
 
 後端使用 FastAPI。收到 CSV 後建立分析快照，提供部門月資料、預估年底金額、95% 區間與可供拉桿重算的年度預算覆寫。互動文件由 FastAPI 提供於 `/docs`。
 
@@ -37,6 +37,12 @@ uvicorn budgetlens.api:app --reload
 `forecast.overrun_probability` 是 run-rate 分布超過年度預算的機率，會隨拉桿連續改變；`forecast.bayesian_overrun_probability` 是現有貝氏網路根據分類證據計算的結果，可能只在證據狀態跨越分類門檻時改變。兩者的統計意義不同，不應混為同一數值。
 
 燈號門檻暫定為綠燈 `<33%`、黃燈 `33%–67%`、紅燈 `>=67%`；教授或 A/B 確認後再調整。若 run-rate 機率因資料不足是 `null`，燈號暫用貝氏網路結果。
+
+## 推論快取與回應時間
+
+貝氏網路只會出現有限種離散證據組合，因此 `posterior_overrun_probability()` 會依證據及先驗參數快取已算出的後驗機率，避免 Slider 每次變動都重新建立網路並執行 Variable Elimination。快取上限為 512 組；先驗不同或證據分類改變時會重新計算並保存。
+
+Windows、Python 3.14.8、3 部門 × 12 個月的 `sample_budget.csv` 本機微基準（2026-10-11）：優化前 `_build_response` 30 次分析的中位數 39.59 ms、P95 59.81 ms；優化後中位數 26.07 ms、P95 37.19 ms。交替改動研發部年度預算的 30 次模擬，中位數 33.34 ms、P95 48.12 ms。計時包含 CSV 已載入後的後端分析／重算函式，不包含 HTTP、網路、JSON 傳輸或前端繪圖；不代表端到端 SLA。此樣本的狀態組合少，尚須以較多部門和實際前端拖桿情境再量測。
 
 ## MVP 限制
 

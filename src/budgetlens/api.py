@@ -139,12 +139,14 @@ def _department_analysis(
     latest_month = int(str(monthly.iloc[-1]["period"]).split("-")[1])
     month_numbers = [int(str(period).split("-")[1]) for period in monthly["period"]]
     complete_ytd = month_numbers == list(range(1, latest_month + 1))
-    elapsed_months = latest_month if complete_ytd else len(monthly)
     annual_budget = float(forecast["annual_budget"])
-    if annual_budget > 0:
+    # A sparse set such as June-August does not mean only three calendar
+    # months have elapsed. Avoid feeding a misleading progress state to the
+    # Bayesian network unless the CSV covers January through the latest month.
+    if complete_ytd and annual_budget > 0:
         progress_ratio = observed_actual / annual_budget
         evidence["當前進度"] = progress_state(
-            progress_ratio, min(max(elapsed_months, 1), 12)
+            progress_ratio, latest_month
         )
 
     mean_actual = float(monthly["actual"].mean())

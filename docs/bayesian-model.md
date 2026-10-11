@@ -1,10 +1,12 @@
-# Day 3 貝氏網路核心
+# 貝氏網路模型與反向推論
 
 核心實作位於 `src/budgetlens/bayesian.py`，使用 pgmpy 的離散貝氏網路與 Variable Elimination。
 
+先驗、機率參數說明與預算不足／執行落後警示草稿見 [`model-assumptions-and-alert-rules.md`](model-assumptions-and-alert-rules.md)。
+
 ## 網路結構
 
-`歷史速率`、`當前進度`、`季節因素` 是根節點，三者共同指向 `超支風險`。離散狀態與條件機率分數沿用原 Day 3 模型規格。
+`歷史速率`、`當前進度`、`季節因素` 是根節點，三者共同指向 `超支風險`。離散狀態與條件機率分數沿用既有模型規格。
 
 ![貝氏網路結構](bayesian-network.png)
 
@@ -12,7 +14,7 @@
 
 ## 暫定先驗
 
-原始 Day 3 資料沒有定義根節點先驗，因此目前程式提供可替換的暫定值：
+原始模型規格沒有定義根節點先驗，因此目前程式提供可替換的暫定值：
 
 - 歷史速率（快、持平、慢）：`[0.25, 0.50, 0.25]`
 - 當前進度（提前、落後）：`[0.50, 0.50]`
@@ -55,6 +57,6 @@ print(report["ranked_causes"])
 
 - `hist_rate_state(last_year_actual, last_year_budget)`：去年實際/預算大於 1.05 為「快」，小於 0.95 為「慢」，其餘為「持平」。
 - `progress_state(used_ratio, month)`：累計使用率高於已過月份比例為「提前」，否則為「落後」。
-- `season_state(own_mult, industry_mult)`：沿用 Day 3 的 0.4/0.6 權重與 1.5 門檻。
+- `season_state(own_mult, industry_mult)`：使用 0.4/0.6 權重與 1.5 門檻。
 
 這些門檻與 CPT 權重目前是原型參數，尚未透過歷史資料訓練或校準。

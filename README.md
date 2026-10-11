@@ -45,4 +45,4 @@ python -m pip install -e .
 python -m uvicorn budgetlens.api:app --reload
 ```
 
-啟動後可開啟 `http://127.0.0.1:8000/docs` 操作 CSV 分析與 What-If API；端點與假設見 [`docs/day6-7-api.md`](docs/day6-7-api.md)。
+啟動後可開啟 `http://127.0.0.1:8000/docs` 操作 CSV 分析與 What-If API；端點與假設見 [`docs/api-forecast-and-simulation.md`](docs/api-forecast-and-simulation.md)。
