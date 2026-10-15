@@ -10,7 +10,7 @@ import pandas as pd
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from .bayesian import (
@@ -35,6 +35,11 @@ app = FastAPI(
     version="0.1.0",
     description="CSV analysis and What-If budget simulation MVP",
 )
+
+@app.get("/", include_in_schema=False)
+def dashboard() -> FileResponse:
+    """Serve the single-page budget dashboard alongside the API."""
+    return FileResponse(os.path.join(os.path.dirname(__file__), "dashboard.html"))
 
 allowed_origins = [
     origin.strip()
@@ -119,10 +124,19 @@ def _department_analysis(
     current = dept.loc[years == latest_year].copy()
     previous = dept.loc[years == latest_year - 1].copy()
 
-    monthly = current.groupby("period", sort=True, as_index=False).agg(
+    monthly_all = current.groupby("period", sort=True, as_index=False).agg(
         budget=("budget", "sum"),
-        actual=("actual", "sum"),
+        actual=("actual", lambda values: values.sum(min_count=1)),
     )
+    monthly = monthly_all.loc[monthly_all["actual"].notna()].copy().reset_index(drop=True)
+    if monthly.empty:
+        raise ValueError(f"At least one month of actual data is required for {department}")
+
+    observed_month_numbers = [int(str(period).split("-")[1]) for period in monthly["period"]]
+    budget_month_numbers = [int(str(period).split("-")[1]) for period in monthly_all["period"]]
+    has_full_year_budget = budget_month_numbers == list(range(1, 13))
+    if annual_budget_override is None and has_full_year_budget:
+        annual_budget_override = float(monthly_all["budget"].sum())
     forecast = forecast_department(monthly, annual_budget_override)
     observed_budget = float(monthly["budget"].sum())
     observed_actual = float(monthly["actual"].sum())
@@ -130,15 +144,14 @@ def _department_analysis(
     variance = observed_actual - observed_budget
 
     evidence: dict[str, str] = {}
-    if not previous.empty:
+    if not previous.empty and previous["actual"].notna().all():
         previous_budget = float(previous["budget"].sum())
         previous_actual = float(previous["actual"].sum())
         if previous_budget > 0:
             evidence["歷史速率"] = hist_rate_state(previous_actual, previous_budget)
 
-    latest_month = int(str(monthly.iloc[-1]["period"]).split("-")[1])
-    month_numbers = [int(str(period).split("-")[1]) for period in monthly["period"]]
-    complete_ytd = month_numbers == list(range(1, latest_month + 1))
+    latest_month = observed_month_numbers[-1]
+    complete_ytd = observed_month_numbers == list(range(1, latest_month + 1))
     annual_budget = float(forecast["annual_budget"])
     # A sparse set such as June-August does not mean only three calendar
     # months have elapsed. Avoid feeding a misleading progress state to the
@@ -161,14 +174,14 @@ def _department_analysis(
     )
 
     monthly_rows: list[dict[str, object]] = []
-    for row in monthly.to_dict(orient="records"):
+    for row in monthly_all.to_dict(orient="records"):
         row_budget = float(row["budget"])
-        row_actual = float(row["actual"])
+        row_actual = float(row["actual"]) if pd.notna(row["actual"]) else None
         monthly_rows.append({
             "period": row["period"],
             "budget": row_budget,
             "actual": row_actual,
-            "usage_rate": row_actual / row_budget if row_budget > 0 else None,
+            "usage_rate": row_actual / row_budget if row_budget > 0 and row_actual is not None else None,
         })
 
     return {

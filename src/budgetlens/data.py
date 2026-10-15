@@ -17,7 +17,8 @@ def prepare_dataframe(frame: pd.DataFrame) -> pd.DataFrame:
 
     ``period`` must be a month in YYYY-MM form. Budget and actual are
     non-negative amounts in the same currency; budget is the planned amount
-    for that department/category/month.
+    for that department/category/month. A blank actual is allowed only for
+    whole, trailing department-months that have not happened or been reported.
     """
     df = frame.copy()
     df.columns = [str(column).strip().lower() for column in df.columns]
@@ -45,14 +46,39 @@ def prepare_dataframe(frame: pd.DataFrame) -> pd.DataFrame:
 
     for column in ("budget", "actual"):
         original = df[column]
+        blank = original.isna() | original.astype("string").str.strip().eq("").fillna(False)
         df[column] = pd.to_numeric(original, errors="coerce")
-        invalid = df[column].isna()
+        invalid = df[column].isna() & (~blank if column == "actual" else True)
         if invalid.any():
             rows = (df.index[invalid] + 2).tolist()
             raise ValueError(f"{column} must be numeric; invalid CSV row(s): {rows}")
         if (df[column] < 0).any():
             rows = (df.index[df[column] < 0] + 2).tolist()
             raise ValueError(f"{column} cannot be negative; invalid CSV row(s): {rows}")
+
+    month_actuals = df.groupby(["department", "period"], sort=True)["actual"].agg(
+        has_actual="count", row_count="size"
+    )
+    partial_months = month_actuals[
+        (month_actuals["has_actual"] > 0) & (month_actuals["has_actual"] < month_actuals["row_count"])
+    ]
+    if not partial_months.empty:
+        raise ValueError("actual must be filled for every category in a month, or blank for the whole month")
+
+    # Missing actuals represent only future/unreported trailing months. Do not
+    # silently annualize a file with a missing month followed by later actuals.
+    for department, rows in df.groupby("department", sort=False):
+        month_state = rows.groupby("period", sort=True)["actual"].count()
+        missing_seen = False
+        for period, actual_count in month_state.items():
+            if actual_count == 0:
+                missing_seen = True
+            elif missing_seen:
+                raise ValueError(
+                    f"actual values must not resume after a blank future month; department: {department}, period: {period}"
+                )
+        if not month_state.gt(0).any():
+            raise ValueError(f"at least one actual month is required for department: {department}")
 
     # Stable order makes API responses and charts deterministic.
     return df.sort_values(["department", "period", "category"], kind="stable").reset_index(drop=True)
@@ -78,7 +104,8 @@ def compute_department_metrics(frame: pd.DataFrame) -> list[dict[str, object]]:
     (actual - budget) / budget. Both are ``None`` when total budget is zero.
     """
     df = prepare_dataframe(frame)
-    grouped = df.groupby("department", sort=True, as_index=False).agg(
+    observed = df.loc[df["actual"].notna()].copy()
+    grouped = observed.groupby("department", sort=True, as_index=False).agg(
         budget=("budget", "sum"),
         actual=("actual", "sum"),
         period_count=("period", "nunique"),

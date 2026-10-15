@@ -1,6 +1,6 @@
 # BudgetLens AI
 
-預算 CSV 分析助手。包含 Python CSV 載入、欄位驗證/正規化、部門預算使用率與差異計算、貝氏網路超支風險，以及 FastAPI 分析與 What-If API。前後端契約見 [`docs/data-contract.md`](docs/data-contract.md)，模型假設見 [`docs/bayesian-model.md`](docs/bayesian-model.md)。
+預算 CSV 分析助手。包含 Python CSV 載入、欄位驗證/正規化、部門預算使用率與差異計算、貝氏網路超支風險，以及 FastAPI 分析與 What-If API。另附可直接使用的互動式前端儀表板。前後端契約見 [`docs/data-contract.md`](docs/data-contract.md)，模型假設見 [`docs/bayesian-model.md`](docs/bayesian-model.md)。
 
 ## 開發環境
 
@@ -45,4 +45,11 @@ python -m pip install -e .
 python -m uvicorn budgetlens.api:app --reload
 ```
 
-啟動後可開啟 `http://127.0.0.1:8000/docs` 操作 CSV 分析與 What-If API；端點與假設見 [`docs/api-forecast-and-simulation.md`](docs/api-forecast-and-simulation.md)。
+啟動後開啟 `http://127.0.0.1:8000/` 使用儀表板，或前往 `http://127.0.0.1:8000/docs` 操作 API；端點與假設見 [`docs/api-forecast-and-simulation.md`](docs/api-forecast-and-simulation.md)。
+
+### 在 VS Code 測試
+
+1. 用 VS Code 開啟專案資料夾，安裝建議的 **Python** 擴充套件，並選擇 Python 3.10 以上的直譯器（`Ctrl+Shift+P` → **Python: Select Interpreter**）。
+2. 開啟 VS Code 終端機（`Ctrl+` `` ` ``），執行 `python -m pip install -e .` 安裝依賴。
+3. 按 `Ctrl+Shift+P` → **Tasks: Run Task** → **BudgetLens: 啟動 API 與儀表板**。
+4. 瀏覽器開啟 <http://127.0.0.1:8000/>，上傳 `sample_budget.csv` 試用。停止服務時，在終端機按 `Ctrl+C`。
